@@ -1,1 +1,6 @@
 rank-bm25
+pathlib
+PyYAML
+python-json-logger
+ipykernel
+pandas

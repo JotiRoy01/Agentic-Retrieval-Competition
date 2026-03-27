@@ -2,6 +2,9 @@
 #from agentic.logger import logging
 
 from agentic.logger.logging import get_logger , setup_logging
+from agentic.exception import Agentic_Exception
+import sys
+
 #from agentic.logger import logger
 
 setup_logging()
@@ -14,6 +17,12 @@ def main():
     #chunks = chunk_text(text)
 
     logger.info(f"Chunks created: {len(text)}")
+
+    try :
+        c = 10/0
+        print(c)
+    except Exception as e :
+        raise Agentic_Exception(e, sys) from e
 
 
 if __name__ == "__main__":
