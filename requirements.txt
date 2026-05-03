@@ -4,3 +4,5 @@ PyYAML
 python-json-logger
 ipykernel
 pandas
+accelerate 
+transformers
