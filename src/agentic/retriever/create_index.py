@@ -64,3 +64,4 @@ def create_unified_corpus(law:pd.DataFrame, court: pd.DataFrame, **kwargs) :
     unified = Unified_Corpus(law=law, court=court)
     unified.add_law()
     unified.add_court()
+    return unified

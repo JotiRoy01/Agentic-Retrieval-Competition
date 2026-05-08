@@ -11,8 +11,8 @@ class BM25 :
     BM match two sentence based on their keyword frequency.
     It return the Best matching 25 index value.
     """
-    def __init__(self, corpus:pd.DataFrame, val:pd.DataFrame) :
-        self.corpus = corpus
+    def __init__(self, laws_de:pd.DataFrame, val:pd.DataFrame) :
+        self.corpus = laws_de
         self.val = val
 
     def Best_Match(self) -> list:   
@@ -35,7 +35,7 @@ class BM25 :
         print("\nSearching with BM25...")
         # Get top 3 scores and their indices 
         bm25_scores = bm25.get_scores(tokenized_query)
-        top_k = 3
+        top_k = 100
         # np.argsort returns indices in ascending order, we take the last 'top_k' and reverse it
         top_indices = np.argsort(bm25_scores)[-top_k:][::-1]
 

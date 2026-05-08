@@ -7,3 +7,9 @@ The crash is from httpx/huggingface_hub trying to build an SSL context using SSL
 unset SSL_CERT_FILE
 python scripts/test_faiss.py
 ```
+Alternative: PowerShell
+If you are on Windows and prefer PowerShell, you can use
+```bash
+Get-ChildItem -Recurse | Select-Object FullName
+```
+Once you have the output, you can copy and paste it into our chat
