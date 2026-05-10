@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import sys
+import faiss
 from typing import List, Tuple
  
 from agentic.retriever.BM25_retriever import BM25
@@ -36,32 +37,27 @@ def reciprocal_rank_fusion(
 class HybridRetriever:
     def __init__(
         self,
-        law_de: pd.DataFrame,
-        val: pd.DataFrame,
-        bm25: BM25,
-        faiss: Faiss,
+        law_df: pd.DataFrame,
+        val_df: pd.DataFrame,
         unified_corpus: Unified_Corpus,
         expanded_query: str,
         query_text: str,
+        top_k: int = 100,
         rrf_k: int = 60,
     ):
         try:
-            self.law_de         = law_de
+            self.law_df         = law_df
+            self.val_df         = val_df
             self.unified_corpus = unified_corpus
-            self.val            = val
             self.expanded_query = expanded_query
             self.query_text     = query_text
             self.rrf_k          = rrf_k
-            self.bm25 = bm25
-            self.faiss = faiss
-            self.law_size = len(self.law_de)
-            self.top_k = 100
+            self.top_k          = top_k
+            self.law_size       = len(self.law_df)
+            self.court_df       = unified_corpus.court_df
 
-            # Instantiate your existing retrievers exactly as they expect
-            self.bm25_retriever  = BM25(corpus=self.law_de, val=val)
-            self.faiss_retriever = Faiss(law=corpus, expanded_query=expanded_query)
-            #self.unified_corpus = unified_corpus
- 
+            self.bm25_retriever = BM25(self.law_df, self.val_df)
+            self.faiss_retriever = Faiss(law=self.law_df, expanded_query=self.expanded_query)
         except Exception as e:
             raise Agentic_Exception(e, sys) from e
 
@@ -78,46 +74,18 @@ class HybridRetriever:
  
         if not citation_strings:
             return [], []
-        
+
         law_indices = []
-        court_indices = []
- 
-        # Match extracted citation strings against the corpus citation column
-        # Use str.contains for partial matching (handles "Art. 641 ZGB" matching
-        # "Art. 641 Abs. 1 ZGB" in corpus, for example)
-        matched_indices = []
         for cit in citation_strings:
-            mask = self.law_de["citation"].str.contains(
+            mask = self.law_df["citation"].str.contains(
                 cit, case=False, na=False, regex=False
             )
-            matched_indices.extend(self.law_de.index[mask].tolist())
-                # Deduplicate while preserving order (first match = highest confidence)
-        
-        court_citations = self.full_corpus.unified_citations[self.law_de:]
-        for cit in citation_strings :
-            for offset, unified_cit in enumerate(court_citations) :
-                if cit.lower() in str(unified_cit).lower() :
-                    court_indices.append(self.law_de + offset)
+            law_indices.extend(self.law_df.index[mask].tolist())
 
-        for cit in citation_strings :
-            for offset, unified_cit in enumerate(court_citations) :
-                if cit.lower() in str(unified_cit).lower() :
-                    court_indices.append(self.law_size + offset)
-
-        # Deduplicate both list
+        # Deduplicate while preserving order
         law_indices = list(dict.fromkeys(law_indices))
-        court_indices = list(dict.fromkeys(court_indices))
+        court_indices = []
 
-
-        # seen = set()
-        # unique_indices = []
-        # for idx in matched_indices:
-        #     if idx not in seen:
-        #         seen.add(idx)
-        #         unique_indices.append(idx)
- 
-        # print(f"Regex found {len(citation_strings)} citation(s) in query "
-        #       f"→ matched {len(unique_indices)} corpus rows.")
         return law_indices, court_indices
 
     def _bm25_retrieve(self) -> list[int] :
@@ -162,6 +130,14 @@ class HybridRetriever:
 
         return law_indices, court_indices
 
+    def retrieve(self, top_k: int = None) -> pd.DataFrame:
+        """
+        Wrapper for public API. Allows caller to override top_k if needed.
+        """
+        if top_k is not None:
+            self.top_k = top_k
+        return self.retriever()
+
     def retriever(self) ->list[dict] :
         """
         Use regex, BM25 and Fiass to retrieve the citation from the corpus
@@ -185,8 +161,11 @@ class HybridRetriever:
         try :
             print(f"\n{'='*60}")
             print(f"Hybrid Retriever | 4 retrievers | top_k= {self.top_k}")
-            print(f"Query     : '{self.query_text[:80]}'\n")
-            print(f"Expanded:   '{self.expanded_query[:80]}'\n")
+            # Sanitize Unicode for Windows console
+            safe_query = self.query_text[:80].replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+            safe_expanded = self.expanded_query[:80].replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+            print(f"Query     : '{safe_query}'\n")
+            print(f"Expanded:   '{safe_expanded}'\n")
             # step 1: regex retriever
             regex_law_ranked, regex_court_ranked = self._regex_retrieve()
 
@@ -205,15 +184,11 @@ class HybridRetriever:
             print(f"FAISS unified (law)   : {len(unified_law_ranked)} candidates")
             print(f"FAISS unified (court) : {len(unified_court_ranked)} candidates")
 
-            # -- step 4: Fuse all three with RRF
-            # law_ranked_list
+            # -- step 4: Fuse all law candidates with RRF
             law_ranked_list = []
-            if regex_law_ranked :
+            if regex_law_ranked:
                 law_ranked_list.append(regex_law_ranked)
-            law_ranked_lists += [bm25_law_ranked, law_faiss_ranked, unified_law_ranked]
-            
-            #ranked_lists.append(fiass_ranked)
-            #ranked_lists.append(fiass_unified_ranked)
+            law_ranked_list.extend([bm25_law_ranked, law_faiss_ranked, unified_law_ranked])
 
             law_rrf_score = reciprocal_rank_fusion(ranked_lists=law_ranked_list, k=self.rrf_k)
 
@@ -221,45 +196,48 @@ class HybridRetriever:
             court_ranked_lists = []
             if regex_court_ranked:
                 court_ranked_lists.append(regex_court_ranked)
-            court_ranked_lists.append(unified_court_ranked)
+            if unified_court_ranked:
+                court_ranked_lists.append(unified_court_ranked)
 
-            court_rrf_scores = reciprocal_rank_fusion(court_ranked_lists, k=self.rrf_k)
-
-            # - step 5: sort by fused score descending
-            #sorted_candidate = sorted(rrf_score.items(), key=lambda x: x[1], reverse=True)
+            court_rrf_scores = (
+                reciprocal_rank_fusion(court_ranked_lists, k=self.rrf_k)
+                if court_ranked_lists else {}
+            )
 
             # step 6: rank lookup for diagnostics
-            bm25_rank_lookup = {idx: r+1 for r , idx in enumerate(bm25_ranked)}
-            law_faiss_rank_lookup = {idx: r+1 for r , idx in enumerate(faiss_ranked)}
-            faiss_rank_unified_lookup = {idx: r+1 for r , idx in enumerate(unified_law_ranked + unified_court_ranked)}
+            bm25_rank_lookup = {idx: r+1 for r, idx in enumerate(bm25_law_ranked)}
+            law_faiss_rank_lookup = {idx: r+1 for r, idx in enumerate(law_faiss_ranked)}
+            unified_indices = unified_law_ranked + unified_court_ranked
+            faiss_rank_unified_lookup = {idx: r+1 for r, idx in enumerate(unified_indices)}
 
             regex_law_set   = set(regex_law_ranked)
             regex_court_set = set(regex_court_ranked)
 
             # ── Step 5: Combine law + court into one pool, sort by rrf_score ──
-            all_candidates = (
-                [('law',   idx, score) for idx, score in law_rrf_scores.items()] +
-                [('court', idx, score) for idx, score in court_rrf_scores.items()]
-            )
-            #all_candidates.sort(key=lambda x: x[2], reverse=True)
+            all_candidates = [
+                ('law',   idx, score) for idx, score in law_rrf_score.items()
+            ]
+            all_candidates += [
+                ('court', idx, score) for idx, score in court_rrf_scores.items()
+            ]
+            all_candidates.sort(key=lambda x: x[2], reverse=True)
 
             # step 7: build final result list
             results = []
 
-            for final_rank, (source, idx, score) in enumerate(all_candidates[:self.top_k], start = 1) :
-                if source == "law" :
-                    row = self.law_de.iloc[idx]
-                    citation = row.get('citation',f'law_idx_{idx}')
+            for final_rank, (source, idx, score) in enumerate(all_candidates[:self.top_k], start=1):
+                if source == "law":
+                    row = self.law_df.iloc[idx]
+                    citation = row.get('citation', f'law_idx_{idx}')
                     text = str(row.get('text', ''))
                     is_regex = idx in regex_law_set
-                else :
-                    # Court: citation from unified_citations, text from court_df
-                    citation     = self.unified_corpus.unified_citations[idx]
+                else:
+                    citation = self.unified_corpus.unified_citations[idx]
                     court_offset = idx - self.law_size
-                    court_row    = self.unified_corpus.court_df.iloc[court_offset]
-                    text         = str(court_row.get('text', ''))
-                    is_regex     = idx in regex_court_set
-                #row = self.law_de.iloc[corpus_idx]
+                    court_row = self.court_df.iloc[court_offset]
+                    text = str(court_row.get('text', ''))
+                    is_regex = idx in regex_court_set
+
                 results.append({
                     'citation':           citation,
                     'text':               text,
@@ -268,7 +246,7 @@ class HybridRetriever:
                     'rank':               final_rank,
                     'bm25_rank':          bm25_rank_lookup.get(idx) if source == 'law' else None,
                     'law_faiss_rank':     law_faiss_rank_lookup.get(idx) if source == 'law' else None,
-                    'unified_faiss_rank': unified_faiss_rank_lookup.get(idx),
+                    'unified_faiss_rank': faiss_rank_unified_lookup.get(idx),
                     'regex_match':        is_regex,
                 })
             # ── Summary

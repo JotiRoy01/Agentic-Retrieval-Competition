@@ -18,6 +18,7 @@ handlers:
     formatter: json
     filename: logs/agentic.log
     mode: a
+    encoding: utf-8
 
 loggers:
   agentic:

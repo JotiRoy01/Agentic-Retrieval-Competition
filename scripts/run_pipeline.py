@@ -35,7 +35,8 @@ def main():
             hybrid_top_k=100,
             reranker_top_k=10,
             use_stage2_reranker=True,
-            save_dir="artifacts"
+            save_dir="artifacts",
+            dev_mode = True
         )
 
         # Startup: load data and build indexes (this takes time)

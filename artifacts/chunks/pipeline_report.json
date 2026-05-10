@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-05-10T20:46:36.966365",
+  "duration_seconds": 199.108106,
+  "input_datasets": {
+    "laws": {
+      "file": "laws_de.csv",
+      "records": 175933,
+      "nrows_limit": null
+    },
+    "court_decisions": {
+      "file": "court_considerations.csv",
+      "records": 2476315,
+      "nrows_limit": null
+    }
+  },
+  "output_chunks": {
+    "laws": {
+      "file": "artifacts\\chunks\\laws_chunks.parquet",
+      "num_chunks": 178916,
+      "stats": {
+        "total_chunks": 178916,
+        "total_tokens": 11970321.0,
+        "avg_tokens_per_chunk": 66.90469829417157,
+        "min_tokens": 0.0,
+        "max_tokens": 1221.0,
+        "chunks_below_threshold": 84032,
+        "chunks_above_threshold": 161
+      }
+    },
+    "court_decisions": {
+      "file": "artifacts\\chunks\\court_chunks.parquet",
+      "num_chunks": 1447549,
+      "stats": {
+        "total_chunks": 1447549,
+        "total_tokens": 615702190.0,
+        "avg_tokens_per_chunk": 425.34117325216624,
+        "min_tokens": 100.0,
+        "max_tokens": 26472.0,
+        "chunks_below_threshold": 0,
+        "chunks_above_threshold": 361940
+      }
+    }
+  },
+  "total_chunks": 1626465,
+  "total_tokens": 627672511.0
+}

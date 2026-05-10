@@ -115,9 +115,10 @@ class DataLoader:
                 nrows=nrows,
                 skiprows=skip_rows,
                 dtype=dtype,
+                encoding='utf-8',
                 **kwargs
             )
-            print(f"✓ Loaded {filename}: {df.shape[0]} rows, {df.shape[1]} columns")
+            print(f"[OK] Loaded {filename}: {df.shape[0]} rows, {df.shape[1]} columns")
             return df
         except Exception as e:
             raise ValueError(f"Error loading {filename}: {str(e)}")
@@ -204,7 +205,7 @@ class DataLoader:
             try:
                 data[filename] = self.load_data(filename, **kwargs)
             except Exception as e:
-                print(f"✗ Error loading {filename}: {str(e)}")
+                print(f"[ERROR] Loading {filename}: {str(e)}")
         return data
     
     def get_summary(self) -> Dict[str, Any]:

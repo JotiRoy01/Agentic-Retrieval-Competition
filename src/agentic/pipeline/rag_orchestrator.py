@@ -30,6 +30,11 @@ from agentic.chunkings.production_chunker import (
 )
 from agentic.exception import Agentic_Exception
 
+from agentic.logger.logging import setup_logging, get_logger
+
+setup_logging()
+logger = get_logger()
+
 
 class RAGPipelineOrchestrator:
     """
@@ -56,7 +61,7 @@ class RAGPipelineOrchestrator:
             logger: Logger instance. If None, creates a new one.
         """
         self.project_root = project_root or self._detect_project_root()
-        self.artifacts_dir = Path(self.artifacts_dir) if isinstance(artifacts_dir, str) else artifacts_dir
+        self.artifacts_dir = Path(artifacts_dir) if isinstance(artifacts_dir, str) else artifacts_dir
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
         
         self.logger = logger or self._setup_logger()
@@ -75,14 +80,19 @@ class RAGPipelineOrchestrator:
     
     def _setup_logger(self) -> logging.Logger:
         """Setup basic logger."""
-        logger = logging.getLogger("RAG_Pipeline")
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            ))
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
+        # logger = logging.getLogger("RAG_Pipeline")
+        # if not logger.handlers:
+        #     handler = logging.StreamHandler()
+        #     handler.setFormatter(logging.Formatter(
+        #         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        #     ))
+        #     logger.addHandler(handler)
+        #     logger.setLevel(logging.INFO)
+        from agentic.logger.logging import setup_logging, get_logger
+
+        setup_logging()
+        logger = get_logger()
+        #logger = logging.getLogger("RAG_Pipeline")
         return logger
     
     def load_laws_dataset(self, 

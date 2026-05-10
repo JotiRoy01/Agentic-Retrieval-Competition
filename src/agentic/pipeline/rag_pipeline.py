@@ -20,8 +20,8 @@ setup_logging()
 logger = get_logger()
 
 
-setup_logging()
-logger = get_logger()
+# setup_logging()
+# logger = get_logger()
 
 class RAGPipeline:
     """
@@ -46,6 +46,8 @@ class RAGPipeline:
         reranker_top_k: int        = 10,
         use_stage2_reranker: bool  = True,
         save_dir: str              = "artifacts",
+        dev_mode: bool = False,
+        dev_rows: int = 500
     ):
         try:
             self.hybrid_top_k         = hybrid_top_k
@@ -53,6 +55,8 @@ class RAGPipeline:
             self.use_stage2_reranker  = use_stage2_reranker
             self.save_dir             = Path(save_dir)
             self.save_dir.mkdir(parents=True, exist_ok=True)
+            self.dev_mode = dev_mode
+            self.dev_rows = dev_rows
  
             # Populated during startup()
             self.law_df       = None
@@ -61,6 +65,7 @@ class RAGPipeline:
             self.unified      = None   # Unified_Corpus — FAISS index for law + court
             self.reranker     = None   # Two-stage Reranker
             self.expander     = None   # QueryExpansion (Qwen2.5)
+            
  
         except Exception as e:
             raise Agentic_Exception(e, sys) from e
@@ -81,9 +86,19 @@ class RAGPipeline:
  
             # ── Step 1: Load datasets ─────────────────────────────────────────
             logger.info("[1/4] Loading datasets...")
-            self.law_df   = load(filename="laws_de.csv")
-            self.court_df = load(filename="court_considerations.csv")
+            # self.law_df   = load(filename="laws_de.csv")
+            # self.court_df = load(filename="court_considerations.csv")
+            self.law_df   = pd.read_parquet("artifacts/chunks/laws_chunks.parquet")
+            self.court_df = pd.read_parquet("artifacts/chunks/court_chunks.parquet")
             self.val_df   = load(filename="val.csv")
+
+            if self.dev_mode:
+                self.law_df   = self.law_df.head(self.dev_rows)
+                self.court_df = self.court_df.head(self.dev_rows // 2)
+                self.val_df   = self.val_df.head(5)   # only 5 queries in dev mode
+                logger.info(f"DEV MODE: law={len(self.law_df)} rows, "
+                f"court={len(self.court_df)} rows, "
+                f"queries={len(self.val_df)}")
  
             logger.info(f"  law_de.csv       : {len(self.law_df):,} rows")
             logger.info(f"  court_considerations.csv : {len(self.court_df):,} rows")
@@ -159,13 +174,17 @@ class RAGPipeline:
         try:
             query_id   = query_row.get("id", query_row.name)
             query_text = str(query_row["query"])
+            
+            # Sanitize query_text for logging (remove Unicode dashes that Windows console can't handle)
+            sanitized_query = query_text[:100].replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
  
-            logger.info(f"\nQuery {query_id}: '{query_text[:100]}'")
+            logger.info(f"\nQuery {query_id}: '{sanitized_query}'")
  
             # ── Step 5: Query expansion ───────────────────────────────────────
             logger.info("  [5] Expanding query...")
             expanded_query = self._expand_query(query_row)
-            logger.info(f"  Expanded: '{expanded_query[:100]}'")
+            sanitized_expanded = expanded_query[:100].replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+            logger.info(f"  Expanded: '{sanitized_expanded}'")
  
             # ── Step 6: Hybrid retrieval ──────────────────────────────────────
             # 4 retrievers: BM25 (law) + FAISS (law) + FAISS (unified) + Regex
@@ -204,7 +223,10 @@ class RAGPipeline:
             }
  
         except Exception as e:
-            logger.error(f"  Query {query_row.get('id', '?')} failed: {e}")
+            query_id = query_row.get("id", "?")
+            # Sanitize error message for Windows console
+            error_str = str(e).replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+            logger.error(f"  Query {query_id} failed: {error_str}")
             raise Agentic_Exception(e, sys) from e
  
     # ── MAIN RUN ──────────────────────────────────────────────────────────────

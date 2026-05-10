@@ -11,6 +11,7 @@ STAGE2_MODEL = 'BAAI/bge-reranker-v2-m3'
 
 MAX_LENGTH = 512
 STAGE1_KEEP = 25
+REGEX_BOOST = 1.25
 
 class Reranker :
     """
@@ -25,7 +26,7 @@ class Reranker :
     input:
     output: 
     """
-    def __init__(self, stage1_model: str = STAGE1_MODEL,stage2_model: str = STAGE2_MODEL,stage1_kepp: int = STAGE1_KEEP,batch_size: int = 32,use_stage2: bool = True,) :
+    def __init__(self, stage1_model: str = STAGE1_MODEL, stage2_model: str = STAGE2_MODEL, stage1_keep: int = STAGE1_KEEP, batch_size: int = 32, use_stage2: bool = True,) :
         try :
             self.stage1_keep = stage1_keep
             self.batch_size  = batch_size
@@ -115,8 +116,10 @@ class Reranker :
                 return candidates
  
             print(f"\n{'='*60}")
-            print(f"Reranker | {len(candidates)} candidates → top_k={top_k}")
-            print(f"Query: '{query[:80]}'")
+            print(f"Reranker | {len(candidates)} candidates | top_k={top_k}")
+            # Sanitize query for Windows console
+            safe_query = query[:80].replace('\u2192', '->').replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+            print(f"Query: '{safe_query}'")
             print(f"{'='*60}")
  
             df = candidates.copy().reset_index(drop=True)
@@ -186,7 +189,9 @@ class Reranker :
  
             print(f"\nReranker complete:")
             print(f"  Final top-{len(df_final)} | law={law_hits} | court={court_hits}")
-            print(f"  Top result: '{df_final.iloc[0]['citation']}' "
+            # Sanitize citation for Windows console
+            top_citation = str(df_final.iloc[0]['citation'])[:60].replace('\u2192', '->').replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+            print(f"  Top result: '{top_citation}' "
                   f"(final_score={df_final.iloc[0]['final_score']:.4f})")
  
             return df_final

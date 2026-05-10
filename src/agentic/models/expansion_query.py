@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 import torch
 from agentic.data_loader.data_loader import load
 from agentic.exception import Agentic_Exception
@@ -13,45 +13,87 @@ class QueryExpansion :
             raise Agentic_Exception(e, sys) from e
 
     def Eng_plus_Germ(self) :
-        # Load the huggingface LLM model 
-        model_id = "Qwen/Qwen2.5-1.5B-Instruct"
+        # Select a model appropriate for the current hardware.
+        if torch.cuda.is_available():
+            model_id = "Qwen/Qwen2.5-1.5B-Instruct"
+            load_kwargs = {
+                "torch_dtype": torch.float16,
+                "device_map": "auto",
+            }
+        else:
+            model_id = "distilgpt2"
+            load_kwargs = {
+                "torch_dtype": torch.float32,
+                "device_map": "cpu",
+            }
 
         try :
             tokenizer = AutoTokenizer.from_pretrained(model_id)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                torch_dtype=torch.float16, # Use half-precision to save memory
-                device_map="auto" # Automatically put it on the P100 GPU
-            )
-
-            # Create a text generation pipeline
-            agent_pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, max_new_tokens=100)
+            if model_id == "google/flan-t5-small":
+                model = AutoModelForSeq2SeqLM.from_pretrained(
+                    model_id,
+                    **load_kwargs,
+                )
+                agent_pipe = pipeline(
+                    "text2text-generation",
+                    model=model,
+                    tokenizer=tokenizer,
+                    max_new_tokens=100,
+                    do_sample=False,
+                )
+            else:
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    **load_kwargs,
+                )
+                agent_pipe = pipeline(
+                    "text-generation",
+                    model=model,
+                    tokenizer=tokenizer,
+                    max_new_tokens=100,
+                    do_sample=False,
+                )
         except Exception as e :
-            raise Agentic_Exception(e, sys) from e
+            # Fallback to a smaller CPU-safe causal model when the preferred model cannot be loaded.
+            fallback_model = "distilgpt2"
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(fallback_model)
+                model = AutoModelForCausalLM.from_pretrained(
+                    fallback_model,
+                    torch_dtype=torch.float32,
+                    device_map="cpu",
+                )
+                agent_pipe = pipeline(
+                    "text-generation",
+                    model=model,
+                    tokenizer=tokenizer,
+                    max_new_tokens=100,
+                    do_sample=False,
+                )
+                model_id = fallback_model
+            except Exception as fallback_e:
+                raise Agentic_Exception(
+                    f"Failed to load expansion model: {e} | fallback error: {fallback_e}",
+                    sys,
+                ) from fallback_e
 
-
-
-        # Our hard English query
         test_query = self.val_df['query'].iloc[0]
-        print(f"Original Query: {test_query[:150]}...")
+        # Sanitize Unicode for Windows console
+        safe_query = str(test_query)[:150].replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+        print(f"Original Query: {safe_query}...")
 
-        system_prompt = """You are an expert Swiss lawyer. Your task is to extract the core legal concepts from the English query 
-        and translate them into German keywords for a database search. 
-        Also, list any relevant Swiss law abbreviations (like StPO, ZGB, OR, StGB)."""
+        prompt = (
+            "You are an expert Swiss lawyer. Extract the core legal concepts from the English query "
+            "and translate them into German keywords for a database search. Also list any relevant Swiss law "
+            "abbreviations (like StPO, ZGB, OR, StGB).\n\n"
+            f"Query: {test_query}\n\nProvide the German keywords and law abbreviations only:"
+        )
 
-        user_message = f"Query: {test_query}\n\nProvide the German keywords and Law abbreviations only:"
+        outputs = agent_pipe(prompt)
+        generated_text = outputs[0].get("generated_text", "").strip()
 
-        # Format the prompt using Qwen's chat template
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ]
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-
-        # Generate the response
-        outputs = agent_pipe(prompt, do_sample=False)
-        generated_text = outputs[0]["generated_text"][len(prompt):]
-        
-
-        print(f"Generated text: {generated_text.strip()}")
-        return generated_text.strip()
+        print(f"Using model {model_id} for expansion")
+        # Sanitize generated text for logging
+        safe_gen = generated_text[:150].replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-')
+        print(f"Generated text: {safe_gen}...")
+        return generated_text
