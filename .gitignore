@@ -213,3 +213,5 @@ RAG_CHUNKIING_GUIDE.md
 *.md
 artifacts/chunks/court_chunks.parquet
 artifacts/chunks/laws_chunks.parquet
+artifacts/pipeline_logs.csv
+artifacts/submission.csv

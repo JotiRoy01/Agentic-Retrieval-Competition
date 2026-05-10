@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-05-10T23:50:15.565208",
+  "total_queries": 5,
+  "total_elapsed_s": 312.17,
+  "avg_per_query_s": 62.43,
+  "hybrid_top_k": 100,
+  "reranker_top_k": 10,
+  "use_stage2": true
+}
