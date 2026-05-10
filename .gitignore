@@ -211,3 +211,5 @@ QUICK_REFERENCE.md
 QUICK_START_CHUNKING.md
 RAG_CHUNKIING_GUIDE.md
 *.md
+artifacts/chunks/court_chunks.parquet
+artifacts/chunks/laws_chunks.parquet
