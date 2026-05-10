@@ -1,5 +1,6 @@
 from agentic.exception import Agentic_Exception
 import sys
+import re
 
 # Building the Rule base Extractor pipeline
 def extract_and_clean_citations(text) :
@@ -27,21 +28,3 @@ def extract_and_clean_citations(text) :
         return list(cleaned_citations)
     except Exception as e :
         raise Agentic_Exception(e, sys) from e
-
-
-for index, row in val_df.iterrows():
-    query_text = row['query']
-    
-    # Handle possible NaN values in gold_citations
-    gold_str = str(row['gold_citations']) if pd.notnull(row['gold_citations']) else ""
-    gold_cits = set(gold_str.split(';')) if gold_str else set()
-    
-    # Extract using our new tool
-    extracted_cits = set(extract_and_clean_citations(query_text))
-    
-    # Calculate hits
-    hits = extracted_cits.intersection(gold_cits)
-    
-    total_gold += len(gold_cits)
-    total_extracted += len(extracted_cits)
-    total_hits += len(hits)

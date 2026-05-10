@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import sys
+from typing import List, Tuple
  
 from agentic.retriever.BM25_retriever import BM25
 from agentic.retriever.faiss_retriever import Faiss
@@ -136,7 +137,7 @@ class HybridRetriever:
         _, dense_indices_full = self.faiss_retriever.Faiss_retriever()
         return dense_indices_full[0].tolist()
 
-    def _unified_faiss_retrieve(self, top_k: int = 100) -> tuple(list[int], list[int]) :
+    def _unified_faiss_retrieve(self, top_k: int = 100) -> Tuple[List[int], List[int]] :
         """
         Search the pre-build unified Faiss Index(law+court_considertion)
         Return two seperate ranked list
@@ -182,7 +183,7 @@ class HybridRetriever:
         """
 
         try :
-            print(f"\n{*60}")
+            print(f"\n{'='*60}")
             print(f"Hybrid Retriever | 4 retrievers | top_k= {self.top_k}")
             print(f"Query     : '{self.query_text[:80]}'\n")
             print(f"Expanded:   '{self.expanded_query[:80]}'\n")

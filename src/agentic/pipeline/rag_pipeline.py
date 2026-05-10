@@ -14,8 +14,14 @@ from agentic.retriever.create_index import create_unified_corpus
 from agentic.retriever.hybrid_retriever import HybridRetriever
 from agentic.retriever.reranker import Reranker
 from agentic.exception import Agentic_Exception
+from agentic.logger.logging import setup_logging, get_logger
+
+setup_logging()
+logger = get_logger()
 
 
+setup_logging()
+logger = get_logger()
 
 class RAGPipeline:
     """

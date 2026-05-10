@@ -1,8 +1,12 @@
 rank-bm25
-pathlib
+pandas
+numpy
+transformers
+torch
+accelerate
+faiss-cpu
+sentence-transformers
 PyYAML
 python-json-logger
 ipykernel
-pandas
-accelerate 
-transformers
+huggingface-hub
