@@ -215,3 +215,9 @@ artifacts/chunks/court_chunks.parquet
 artifacts/chunks/laws_chunks.parquet
 artifacts/pipeline_logs.csv
 artifacts/submission.csv
+artifacts/evaluation/best_queries.csv
+artifacts/evaluation/evaluation_summary.json
+artifacts/evaluation/most_missed_citations.csv
+artifacts/evaluation/most_wrong_citations.csv
+artifacts/evaluation/per_query_results.csv
+artifacts/evaluation/worst_queries.csv
