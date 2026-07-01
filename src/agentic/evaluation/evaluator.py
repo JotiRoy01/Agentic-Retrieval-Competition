@@ -35,7 +35,7 @@ class QueryResult :
 class EvaluationReport :
     """
     Full evaluation report across all queries.
-    I will show it in my Django dashboard.
+   
     """
     query_results:    list[QueryResult]
     macro_f1:         float = 0.0      # average F1 across queries (competition metric)
